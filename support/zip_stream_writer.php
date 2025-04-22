@@ -323,6 +323,7 @@
 			$deflatesupported = (isset($options["compress_method"]) && $options["compress_method"] === self::COMPRESS_METHOD_STORE ? false : DeflateStream::IsSupported());
 
 			$filename = trim(str_replace("\\", "/", $filename), "/");
+			$compressed_size = (isset($options["compressed_size"]) ? $options["compressed_size"] : 0);
 
 			if (!isset($options["64bit"]))  $options["64bit"] = (isset($options["uncompressed_size"]) && ($options["uncompressed_size"] < 0 || $options["uncompressed_size"] > 0x7FFFFFFF));
 			if (!isset($options["64bit"]))  $options["64bit"] = (isset($options["compressed_size"]) && ($options["compressed_size"] < 0 || $options["compressed_size"] > 0x7FFFFFFF));
@@ -338,7 +339,7 @@
 
 			$options["compress_method"] = ($deflatesupported ? self::COMPRESS_METHOD_DEFLATE : self::COMPRESS_METHOD_STORE);
 			$options["crc32"] = (isset($options["crc32"]) ? (int)$options["crc32"] : 0);
-			$options["compressed_size"] = (isset($options["compressed_size"]) ? $options["compressed_size"] : 0);
+			$options["compressed_size"] = 0;
 			$options["filename"] = $filename;
 			$options["disk_start_num"] = $this->disknum;
 			$options["header_offset"] = $this->outdatasize;
@@ -346,10 +347,12 @@
 
 			$this->currdir = self::InitCentralDirHeader($options);
 
-			if ($options["64bit"])  self::AppendZip64ExtraField($this->currdir["extra_fields"], (isset($options["uncompressed_size"]) ? $options["uncompressed_size"] : 0), (isset($options["compressed_size"]) ? $options["compressed_size"] : 0));
+			if ($options["64bit"])  self::AppendZip64ExtraField($this->currdir["extra_fields"], (isset($options["uncompressed_size"]) ? $options["uncompressed_size"] : 0), $compressed_size);
 
 			// Write the file header.
+			$this->currdir["compressed_size"] = $compressed_size;
 			$this->WriteLocalFileHeader();
+			$this->currdir["compressed_size"] = 0;
 
 			// Set up data streams.
 			$this->currcrc32 = new CRC32Stream();
