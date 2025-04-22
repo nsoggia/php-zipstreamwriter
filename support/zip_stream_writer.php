@@ -325,6 +325,7 @@
 			$filename = trim(str_replace("\\", "/", $filename), "/");
 
 			if (!isset($options["64bit"]))  $options["64bit"] = (isset($options["uncompressed_size"]) && ($options["uncompressed_size"] < 0 || $options["uncompressed_size"] > 0x7FFFFFFF));
+			if (!isset($options["64bit"]))  $options["64bit"] = (isset($options["compressed_size"]) && ($options["compressed_size"] < 0 || $options["compressed_size"] > 0x7FFFFFFF));
 
 			if (isset($options["uncompressed_size"]) && $options["uncompressed_size"] < 0)  unset($options["uncompressed_size"]);
 
@@ -332,12 +333,12 @@
 
 			if (!isset($options["version_required"]) || $options["version_required"] < $minver)  $options["version_required"] = $minver;
 			if (!isset($options["flags"]))  $options["flags"] = ($deflatesupported ? self::FLAG_DEFLATE_NORMAL : self::FLAG_NORMAL) | self::FLAG_UTF8;
-			$options["flags"] |= self::FLAG_USE_DATA_DESCRIPTOR;
+			if (!isset($options["crc32"]) || !isset($options["compressed_size"]))  $options["flags"] |= self::FLAG_USE_DATA_DESCRIPTOR;
 			if (!isset($options["last_modified"]))  $options["last_modified"] = time();
 
 			$options["compress_method"] = ($deflatesupported ? self::COMPRESS_METHOD_DEFLATE : self::COMPRESS_METHOD_STORE);
 			$options["crc32"] = (isset($options["crc32"]) ? (int)$options["crc32"] : 0);
-			$options["compressed_size"] = 0;
+			$options["compressed_size"] = (isset($options["compressed_size"]) ? $options["compressed_size"] : 0);
 			$options["filename"] = $filename;
 			$options["disk_start_num"] = $this->disknum;
 			$options["header_offset"] = $this->outdatasize;
@@ -345,7 +346,7 @@
 
 			$this->currdir = self::InitCentralDirHeader($options);
 
-			if ($options["64bit"])  self::AppendZip64ExtraField($this->currdir["extra_fields"], (isset($options["uncompressed_size"]) ? $options["uncompressed_size"] : 0));
+			if ($options["64bit"])  self::AppendZip64ExtraField($this->currdir["extra_fields"], (isset($options["uncompressed_size"]) ? $options["uncompressed_size"] : 0), (isset($options["compressed_size"]) ? $options["compressed_size"] : 0));
 
 			// Write the file header.
 			$this->WriteLocalFileHeader();
@@ -569,12 +570,12 @@
 		}
 
 		// In general, this function should be treated as internal.
-		public static function AppendZip64ExtraField(&$extrafields, $origsize)
+		public static function AppendZip64ExtraField(&$extrafields, $origsize, $compsize)
 		{
 			$extrafields[] = array(
 				"header_id" => self::EXTRA_FIELD_ZIP64,
 				"uncompressed_size" => $origsize,
-				"compressed_size" => 0,
+				"compressed_size" => $compsize,
 				"header_offset" => 0,
 				"disk_start_num" => 0
 			);
